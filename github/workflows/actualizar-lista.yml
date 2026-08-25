@@ -1,4 +1,5 @@
-
+permissions:
+  contents: write
 name: Generar lista de audios automáticamente
 
 on:
