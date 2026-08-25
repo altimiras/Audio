@@ -1,1 +1,94 @@
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Colección de Audios</title>
+  <!-- Librería para extraer carátulas, título y artista del propio MP3 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 2rem 1rem; }
+    h1 { text-align: center; margin-bottom: 2rem; font-weight: 700; color: #38bdf8; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.5rem; max-width: 1200px; margin: 0 auto; }
+    .card { background: #1e293b; padding: 1.25rem; border-radius: 12px; text-align: center; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); }
+    .card img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; background: #0f172a; }
+    .card h3 { margin: 12px 0 4px; font-size: 1.1rem; }
+    .card p { color: #94a3b8; margin: 0 0 12px; font-size: 0.9rem; }
+    audio { width: 100%; height: 36px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+
+  <h1>Mis Grabaciones</h1>
+  <div id="playlist" class="grid"></div>
+
+  <script>
+    // =========================================================
+    // LISTA DE AUDIOS
+    // Añade aquí las rutas de tus archivos MP3 guardados en la carpeta audios/
+    // =========================================================
+    const listaAudios = [
+      "audios/grabacion1.mp3",
+      "audios/grabacion2.mp3"
+    ];
+
+    const jsMediaTags = window.jsmediatags;
+    const container = document.getElementById("playlist");
+
+    listaAudios.forEach(src => {
+      // 1. Crear contenedor de la tarjeta
+      const card = document.createElement("div");
+      card.className = "card";
+      
+      const img = document.createElement("img");
+      img.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='1.5'><path d='M9 18V5l12-2v13'></path><circle cx='6' cy='18' r='3'></circle><circle cx='18' cy='16' r='3'></circle></svg>";
+      img.alt = "Portada";
+
+      const titleEl = document.createElement("h3");
+      titleEl.textContent = "Cargando...";
+
+      const artistEl = document.createElement("p");
+      artistEl.textContent = "...";
+
+      const audioEl = document.createElement("audio");
+      audioEl.controls = true;
+      audioEl.src = src;
+
+      card.appendChild(img);
+      card.appendChild(titleEl);
+      card.appendChild(artistEl);
+      card.appendChild(audioEl);
+      container.appendChild(card);
+
+      // 2. Leer etiquetas ID3 internas del archivo MP3
+      jsMediaTags.read(src, {
+        onSuccess: function(tag) {
+          const tags = tag.tags;
+          
+          // Extraer Título y Artista
+          const nombreArchivo = src.split('/').pop().replace('.mp3', '');
+          titleEl.textContent = tags.title || nombreArchivo;
+          artistEl.textContent = tags.artist || "Autor no especificado";
+          
+          // Extraer Carátula embebida si existe
+          if (tags.picture) {
+            const { data, format } = tags.picture;
+            let base64String = "";
+            for (let i = 0; i < data.length; i++) {
+              base64String += String.fromCharCode(data[i]);
+            }
+            img.src = `data:${format};base64,${btoa(base64String)}`;
+          }
+        },
+        onError: function(error) {
+          const nombreArchivo = src.split('/').pop().replace('.mp3', '');
+          titleEl.textContent = nombreArchivo;
+          artistEl.textContent = "Audio personal";
+        }
+      });
+    });
+  </script>
+</body>
+</html>
