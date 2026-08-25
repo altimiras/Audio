@@ -1,6 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0969da">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cancionero — Mis Grabaciones</title>
@@ -32,22 +35,6 @@
 
   #estado{ padding:16px 20px; color:var(--texto-tenue); font-family:-apple-system, system-ui, sans-serif; font-size:0.9rem; }
   #estado.error{color:#c8785a;}
-
-  #config-form{
-    margin:16px 20px; padding:16px; background:var(--fondo-fila);
-    border:1px solid var(--borde); border-radius:10px;
-    font-family:-apple-system, system-ui, sans-serif; display:none;
-  }
-  #config-form.visible{display:block;}
-  #config-form label{ display:block; font-size:0.75rem; color:var(--texto-tenue); margin-top:10px; }
-  #config-form input{
-    width:100%; padding:9px 10px; margin-top:4px; background:#161210;
-    border:1px solid var(--borde); border-radius:6px; color:var(--texto); font-size:0.9rem;
-  }
-  #config-form button{
-    margin-top:14px; padding:9px 16px; background:var(--acento); color:#1b1714;
-    border:none; border-radius:6px; font-weight:bold; font-family:-apple-system, system-ui, sans-serif;
-  }
 
   #lista{ display:flex; flex-direction:column; padding:8px 14px 20px; gap:2px; }
 
@@ -123,16 +110,6 @@
 
 <div id="estado">Cargando lista de canciones…</div>
 
-<div id="config-form">
-  <label for="in-usuario">Usuario de GitHub</label>
-  <input id="in-usuario" placeholder="p. ej. jperez">
-  <label for="in-repo">Nombre del repositorio</label>
-  <input id="in-repo" placeholder="p. ej. cancionero">
-  <label for="in-rama">Rama (opcional, por defecto "main")</label>
-  <input id="in-rama" placeholder="main">
-  <button onclick="guardarConfiguracion()">Guardar y cargar</button>
-</div>
-
 <div id="lista"></div>
 <div id="vacio" style="display:none;"></div>
 
@@ -158,25 +135,9 @@ const CARPETA_MP3 = "mp3";
 function obtenerConfiguracion(){
   const host = location.hostname;
   const partesRuta = location.pathname.split("/").filter(Boolean);
-
-  if(host.endsWith(".github.io")){
-    const usuario = host.split(".")[0];
-    const repositorio = partesRuta.length > 0 ? partesRuta[0] : host;
-    return {usuario, repositorio, rama: RAMA_POR_DEFECTO, carpetaMp3: CARPETA_MP3};
-  }
-
-  const guardada = localStorage.getItem("cancionero_config");
-  if(guardada){ try{ return JSON.parse(guardada); }catch(e){} }
-  return {usuario:"", repositorio:"", rama:RAMA_POR_DEFECTO, carpetaMp3:CARPETA_MP3};
-}
-
-function guardarConfiguracion(){
-  const usuario = document.getElementById("in-usuario").value.trim();
-  const repo = document.getElementById("in-repo").value.trim();
-  const rama = document.getElementById("in-rama").value.trim() || RAMA_POR_DEFECTO;
-  if(!usuario || !repo){ alert("Completa al menos usuario y repositorio."); return; }
-  localStorage.setItem("cancionero_config", JSON.stringify({usuario, repositorio:repo, rama, carpetaMp3:CARPETA_MP3}));
-  location.reload();
+  const usuario = host.split(".")[0];
+  const repositorio = partesRuta.length > 0 ? partesRuta[0] : host;
+  return {usuario, repositorio, rama: RAMA_POR_DEFECTO, carpetaMp3: CARPETA_MP3};
 }
 
 function tituloDesdeArchivo(ruta){
@@ -188,13 +149,6 @@ function tituloDesdeArchivo(ruta){
 async function cargarCancionero(){
   const cfg = obtenerConfiguracion();
   const estado = document.getElementById("estado");
-  const formCfg = document.getElementById("config-form");
-
-  if(!cfg.usuario || !cfg.repositorio){
-    estado.textContent = "Falta configurar el repositorio.";
-    formCfg.classList.add("visible");
-    return;
-  }
 
   try{
     const urlArbol = `https://api.github.com/repos/${cfg.usuario}/${cfg.repositorio}/git/trees/${cfg.rama}?recursive=1`;
@@ -238,7 +192,6 @@ async function cargarCancionero(){
   }catch(err){
     estado.textContent = "No se pudo cargar el cancionero: " + err.message;
     estado.classList.add("error");
-    formCfg.classList.add("visible");
   }
 }
 
@@ -293,19 +246,38 @@ async function leerEtiquetasId3(cancion, fila){
         }
         if(t.picture){
           const {data, format} = t.picture;
-          const bytes = new Uint8Array(data);
-          const blobImagen = new Blob([bytes], {type: format});
-          const urlImagen = URL.createObjectURL(blobImagen);
-          cancion.urlCaratula = urlImagen;
+          let urlImagen = null;
 
-          const envoltorio = fila.querySelector(".caratula-wrap");
-          const marcador = envoltorio.querySelector(".sin-caratula");
-          if(marcador) marcador.remove();
-          const img = document.createElement("img");
-          img.src = urlImagen;
-          img.alt = cancion.titulo;
-          img.loading = "lazy";
-          envoltorio.prepend(img);
+          if(format === "-->"){
+            // Algunas apps (p. ej. Automatic Tag Editor) guardan la carátula
+            // como un ENLACE a una imagen en internet, en vez de incrustarla.
+            // En ese caso "data" son los bytes de texto de esa URL.
+            urlImagen = new TextDecoder("utf-8").decode(new Uint8Array(data)).trim();
+          } else if(data && data.length){
+            // Caso normal: imagen incrustada como bytes.
+            const bytes = new Uint8Array(data);
+            const blobImagen = new Blob([bytes], {type: format || "image/jpeg"});
+            urlImagen = URL.createObjectURL(blobImagen);
+          }
+
+          if(urlImagen){
+            cancion.urlCaratula = urlImagen;
+            const envoltorio = fila.querySelector(".caratula-wrap");
+            const marcador = envoltorio.querySelector(".sin-caratula");
+            if(marcador) marcador.remove();
+            const img = document.createElement("img");
+            img.src = urlImagen;
+            img.alt = cancion.titulo;
+            img.loading = "lazy";
+            img.referrerPolicy = "no-referrer";
+            img.onerror = () => { img.remove(); if(!envoltorio.querySelector(".sin-caratula")){
+              const span = document.createElement("div");
+              span.className = "sin-caratula";
+              span.textContent = "♪";
+              envoltorio.prepend(span);
+            }};
+            envoltorio.prepend(img);
+          }
         }
       },
       onError: function(error){
