@@ -1,174 +1,314 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mi Colección de Audios</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cancionero — Mis Grabaciones</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+<style>
+  :root{
+    --fondo:#1b1714;
+    --fondo-carta:#241e19;
+    --borde:#3a2f26;
+    --texto:#efe6d8;
+    --texto-tenue:#a89685;
+    --acento:#c8853a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 15% 0%, #2a221b 0%, transparent 55%),
+      var(--fondo);
+    color:var(--texto);
+    font-family: 'Georgia', 'Iowan Old Style', serif;
+    padding-bottom:110px;
+    min-height:100vh;
+  }
+  header{ padding:28px 20px 18px; border-bottom:1px solid var(--borde); }
+  header h1{ margin:0; font-size:1.7rem; letter-spacing:0.04em; font-weight:400; }
+  header h1 span{color:var(--acento);}
+  header p{ margin:6px 0 0; color:var(--texto-tenue); font-family:-apple-system, system-ui, sans-serif; font-size:0.85rem; }
 
-  <!-- LÍNEAS PARA EL ICONO DE LA PESTAÑA (FAVICON) -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2338bdf8'><path d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/></svg>">
-  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  #estado{ padding:16px 20px; color:var(--texto-tenue); font-family:-apple-system, system-ui, sans-serif; font-size:0.9rem; }
+  #estado.error{color:#c8785a;}
 
-  <!-- Librería externa para leer metadatos MP3 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+  #config-form{
+    margin:16px 20px; padding:16px; background:var(--fondo-carta);
+    border:1px solid var(--borde); border-radius:10px;
+    font-family:-apple-system, system-ui, sans-serif; display:none;
+  }
+  #config-form.visible{display:block;}
+  #config-form label{ display:block; font-size:0.75rem; color:var(--texto-tenue); margin-top:10px; }
+  #config-form input{
+    width:100%; padding:9px 10px; margin-top:4px; background:#161210;
+    border:1px solid var(--borde); border-radius:6px; color:var(--texto); font-size:0.9rem;
+  }
+  #config-form button{
+    margin-top:14px; padding:9px 16px; background:var(--acento); color:#1b1714;
+    border:none; border-radius:6px; font-weight:bold; font-family:-apple-system, system-ui, sans-serif;
+  }
 
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 2rem 1rem; }
-    .container { max-width: 600px; margin: 0 auto; background: #1e293b; padding: 2rem; border-radius: 16px; border: 1px solid #334155; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-    h1 { margin-top: 0; color: #38bdf8; font-size: 1.5rem; }
-    
-    .cover-art { width: 220px; height: 220px; margin: 1.5rem auto; border-radius: 12px; object-fit: cover; background: #0f172a; border: 2px solid #334155; display: block; }
-    .track-title { font-size: 1.3rem; margin: 10px 0 4px; color: #f1f5f9; }
-    .track-artist { font-size: 1rem; color: #94a3b8; margin-bottom: 1.5rem; }
-    
-    audio { width: 100%; margin-bottom: 1.5rem; outline: none; }
-    
-    .controls { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; }
-    .btn { background: #38bdf8; color: #0f172a; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-    .btn:hover { background: #7dd3fc; }
-    
-    .playlist-section { text-align: left; border-top: 1px solid #334155; padding-top: 1.5rem; }
-    .playlist-section h3 { font-size: 1rem; color: #94a3b8; margin-bottom: 0.8rem; }
-    .playlist { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
-    .playlist li { padding: 0.75rem 1rem; background: #0f172a; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; }
-    .playlist li:hover { border-color: #38bdf8; }
-    .playlist li.active { background: #0284c7; color: #fff; }
-    .playlist li.active .song-file { color: #e0f2fe; }
-    .song-file { font-size: 0.85rem; color: #64748b; }
-  </style>
+  #rejilla{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:18px; padding:8px 20px 20px; }
+
+  .carta{
+    background:var(--fondo-carta); border:1px solid var(--borde); border-radius:10px;
+    overflow:hidden; cursor:pointer; transition:transform .15s ease, border-color .15s ease;
+  }
+  .carta:active{transform:scale(0.97);}
+  .carta.activa{border-color:var(--acento);}
+
+  .caratula-wrap{ position:relative; width:100%; aspect-ratio:1/1; background:#161210; overflow:hidden; }
+  .caratula-wrap img{ width:100%;height:100%;object-fit:cover;display:block; }
+  .caratula-wrap .sin-caratula{
+    width:100%;height:100%; display:flex;align-items:center;justify-content:center;
+    color:var(--texto-tenue); font-family:-apple-system, system-ui, sans-serif; font-size:2rem;
+  }
+  .marca-play{
+    position:absolute; right:8px;bottom:8px; width:26px;height:26px; border-radius:50%;
+    background:var(--acento); display:flex;align-items:center;justify-content:center;
+    opacity:0; transition:opacity .15s ease;
+  }
+  .carta.activa .marca-play{opacity:1;}
+  .marca-play svg{width:12px;height:12px;fill:#1b1714;}
+
+  .carta .info{padding:10px 10px 12px;}
+  .carta .titulo{ font-size:0.92rem; line-height:1.25; margin:0; color:var(--texto); }
+  .carta .subtitulo{ margin:4px 0 0; font-size:0.72rem; color:var(--texto-tenue); font-family:-apple-system, system-ui, sans-serif; }
+
+  #reproductor{
+    position:fixed; left:0;right:0;bottom:0; background:#141110; border-top:1px solid var(--borde);
+    padding:10px 14px 14px; display:none; align-items:center; gap:12px;
+  }
+  #reproductor.visible{display:flex;}
+  #reproductor img{ width:46px;height:46px;border-radius:6px;object-fit:cover;flex-shrink:0; }
+  #reproductor .datos{ flex:1; min-width:0; }
+  #reproductor .titulo-actual{ font-size:0.85rem; white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  #reproductor audio{ width:100%; height:32px; margin-top:4px; }
+
+  #vacio{
+    padding:40px 20px; text-align:center; color:var(--texto-tenue);
+    font-family:-apple-system, system-ui, sans-serif; font-size:0.9rem; line-height:1.6;
+  }
+  code{ background:#161210; padding:1px 6px; border-radius:4px; color:var(--acento); }
+</style>
 </head>
 <body>
 
-  <div class="container">
-    <h1>Mi Colección de Audios</h1>
-    
-    <!-- Carátula principal -->
-    <img id="cover" class="cover-art" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='1.5'><path d='M9 18V5l12-2v13'></path><circle cx='6' cy='18' r='3'></circle><circle cx='18' cy='16' r='3'></circle></svg>" alt="Carátula">
-    
-    <!-- Información de la pista activa -->
-    <div id="title" class="track-title">Cargando...</div>
-    <div id="artist" class="track-artist">-</div>
-    
-    <!-- Controles de Audio -->
-    <audio id="player" controls></audio>
-    
-    <div class="controls">
-      <button class="btn" onclick="prevTrack()">Anterior</button>
-      <button class="btn" onclick="nextTrack()">Siguiente</button>
-    </div>
+<header>
+  <h1>Mi <span>Cancionero</span></h1>
+  <p>Título y carátula se leen directamente de las etiquetas del propio mp3</p>
+</header>
 
-    <!-- Lista de reproducción interactiva -->
-    <div class="playlist-section">
-      <h3>Lista de Pistas</h3>
-      <ul id="playlist" class="playlist"></ul>
-    </div>
+<div id="estado">Cargando lista de canciones…</div>
+
+<div id="config-form">
+  <label for="in-usuario">Usuario de GitHub</label>
+  <input id="in-usuario" placeholder="p. ej. jperez">
+  <label for="in-repo">Nombre del repositorio</label>
+  <input id="in-repo" placeholder="p. ej. cancionero">
+  <label for="in-rama">Rama (opcional, por defecto "main")</label>
+  <input id="in-rama" placeholder="main">
+  <button onclick="guardarConfiguracion()">Guardar y cargar</button>
+</div>
+
+<div id="rejilla"></div>
+<div id="vacio" style="display:none;"></div>
+
+<div id="reproductor">
+  <img id="rep-caratula" src="" alt="">
+  <div class="datos">
+    <div class="titulo-actual" id="rep-titulo">—</div>
+    <audio id="rep-audio" controls preload="metadata"></audio>
   </div>
+</div>
 
-  <script>
-    const jsMediaTags = window.jsmediatags;
-    const player = document.getElementById('player');
-    const coverEl = document.getElementById('cover');
-    const titleEl = document.getElementById('title');
-    const artistEl = document.getElementById('artist');
-    const playlistEl = document.getElementById('playlist');
+<script>
+/* =========================================================
+   CONFIGURACIÓN AUTOMÁTICA
+   La página deduce sola el usuario y el repositorio a partir
+   de la URL donde GitHub Pages la está sirviendo. No hace
+   falta escribir nada, salvo que la abras fuera de GitHub
+   Pages (por ejemplo en local) — en ese caso pedirá los datos.
+   ========================================================= */
+const RAMA_POR_DEFECTO = "main";
+const CARPETA_MP3 = "mp3";
 
-    const defaultCover = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='1.5'><path d='M9 18V5l12-2v13'></path><circle cx='6' cy='18' r='3'></circle><circle cx='18' cy='16' r='3'></circle></svg>";
+function obtenerConfiguracion(){
+  const host = location.hostname;           // ej: jperez.github.io
+  const partesRuta = location.pathname.split("/").filter(Boolean); // ej: ["cancionero", "index.html"]
 
-    let tracks = [];
-    let currentIndex = 0;
+  if(host.endsWith(".github.io")){
+    const usuario = host.split(".")[0];
+    // Página de proyecto: usuario.github.io/repositorio/...
+    // Página raíz de usuario: usuario.github.io/  (el repo se llama usuario.github.io)
+    const repositorio = partesRuta.length > 0 ? partesRuta[0] : host;
+    return {usuario, repositorio, rama: RAMA_POR_DEFECTO, carpetaMp3: CARPETA_MP3};
+  }
 
-    // Cargar lista desde lista-audios.json
-    fetch('lista-audios.json')
-      .then(res => res.json())
-      .then(files => {
-        if (!files || files.length === 0) {
-          titleEl.textContent = "No hay archivos en lista-audios.json";
-          return;
-        }
+  // No estamos en github.io (ej: probando el archivo en local): usar datos guardados manualmente
+  const guardada = localStorage.getItem("cancionero_config");
+  if(guardada){ try{ return JSON.parse(guardada); }catch(e){} }
+  return {usuario:"", repositorio:"", rama:RAMA_POR_DEFECTO, carpetaMp3:CARPETA_MP3};
+}
 
-        tracks = files.map(file => ({
-          file: file,
-          src: `audios/${file}`,
-          title: file.replace('.mp3', ''),
-          artist: 'Grabación Personal',
-          cover: defaultCover
-        }));
+function guardarConfiguracion(){
+  const usuario = document.getElementById("in-usuario").value.trim();
+  const repo = document.getElementById("in-repo").value.trim();
+  const rama = document.getElementById("in-rama").value.trim() || RAMA_POR_DEFECTO;
+  if(!usuario || !repo){ alert("Completa al menos usuario y repositorio."); return; }
+  localStorage.setItem("cancionero_config", JSON.stringify({usuario, repositorio:repo, rama, carpetaMp3:CARPETA_MP3}));
+  location.reload();
+}
 
-        renderPlaylist();
-        loadTrack(0);
+function tituloDesdeArchivo(ruta){
+  const archivo = ruta.split("/").pop();
+  const sinExt = archivo.substring(0, archivo.lastIndexOf(".")) || archivo;
+  return sinExt.replace(/[_\-]+/g," ").trim().replace(/\b\w/g, l => l.toUpperCase());
+}
 
-        // Extraer metadatos ID3
-        tracks.forEach((track, index) => {
-          jsMediaTags.read(track.src, {
-            onSuccess: function(tag) {
-              const tags = tag.tags;
-              if (tags.title) track.title = tags.title;
-              if (tags.artist) track.artist = tags.artist;
-              if (tags.picture) {
-                const { data, format } = tags.picture;
-                let base64 = "";
-                for (let i = 0; i < data.length; i++) {
-                  base64 += String.fromCharCode(data[i]);
-                }
-                track.cover = `data:${format};base64,${btoa(base64)}`;
-              }
-              renderPlaylist();
-              if (index === currentIndex) updateUI();
-            },
-            onError: function() {}
-          });
-        });
-      })
-      .catch(err => {
-        titleEl.textContent = "Error al cargar lista-audios.json";
-      });
+async function cargarCancionero(){
+  const cfg = obtenerConfiguracion();
+  const estado = document.getElementById("estado");
+  const formCfg = document.getElementById("config-form");
 
-    function loadTrack(index) {
-      if (tracks.length === 0) return;
-      currentIndex = index;
-      player.src = tracks[currentIndex].src;
-      updateUI();
-      renderPlaylist();
+  if(!cfg.usuario || !cfg.repositorio){
+    estado.textContent = "Falta configurar el repositorio.";
+    formCfg.classList.add("visible");
+    return;
+  }
+
+  try{
+    const urlArbol = `https://api.github.com/repos/${cfg.usuario}/${cfg.repositorio}/git/trees/${cfg.rama}?recursive=1`;
+    const resp = await fetch(urlArbol);
+    if(!resp.ok){
+      throw new Error(resp.status === 404
+        ? "No se encontró el repositorio o la rama indicada."
+        : `Error de GitHub (${resp.status}).`);
+    }
+    const datos = await resp.json();
+    const items = datos.tree || [];
+
+    const mp3s = items.filter(i => i.type === "blob" &&
+      i.path.startsWith(cfg.carpetaMp3 + "/") &&
+      i.path.toLowerCase().endsWith(".mp3"));
+
+    if(mp3s.length === 0){
+      estado.style.display = "none";
+      const vacio = document.getElementById("vacio");
+      vacio.style.display = "block";
+      vacio.innerHTML = `No se encontraron archivos .mp3 todavía.<br><br>
+        Sube tus canciones (con su carátula y título ya incrustados como etiquetas ID3)
+        a la carpeta <code>${cfg.carpetaMp3}/</code> del repositorio.`;
+      return;
     }
 
-    function updateUI() {
-      const current = tracks[currentIndex];
-      titleEl.textContent = current.title;
-      artistEl.textContent = current.artist;
-      coverEl.src = current.cover;
-    }
+    const base = `https://raw.githubusercontent.com/${cfg.usuario}/${cfg.repositorio}/${cfg.rama}/`;
+    const canciones = mp3s
+      .map(m => ({
+        ruta: m.path,
+        titulo: tituloDesdeArchivo(m.path), // provisional, se reemplaza si el mp3 trae etiqueta
+        artista: "",
+        urlAudio: base + m.path,
+        urlCaratula: null
+      }))
+      .sort((a,b) => a.titulo.localeCompare(b.titulo, "es"));
 
-    function renderPlaylist() {
-      playlistEl.innerHTML = '';
-      tracks.forEach((track, idx) => {
-        const li = document.createElement('li');
-        if (idx === currentIndex) li.className = 'active';
-        li.innerHTML = `<span>${track.title}</span> <span class="song-file">${track.file}</span>`;
-        li.onclick = () => {
-          loadTrack(idx);
-          player.play();
-        };
-        playlistEl.appendChild(li);
-      });
-    }
+    estado.style.display = "none";
+    renderizarRejilla(canciones);
 
-    function nextTrack() {
-      if (tracks.length === 0) return;
-      currentIndex = (currentIndex + 1) % tracks.length;
-      loadTrack(currentIndex);
-      player.play();
-    }
+  }catch(err){
+    estado.textContent = "No se pudo cargar el cancionero: " + err.message;
+    estado.classList.add("error");
+    formCfg.classList.add("visible");
+  }
+}
 
-    function prevTrack() {
-      if (tracks.length === 0) return;
-      currentIndex = (currentIndex - 1 + tracks.length) % tracks.length;
-      loadTrack(currentIndex);
-      player.play();
-    }
+function renderizarRejilla(canciones){
+  const rejilla = document.getElementById("rejilla");
+  rejilla.innerHTML = "";
 
-    player.addEventListener('ended', nextTrack);
-  </script>
+  canciones.forEach((cancion, indice) => {
+    const carta = document.createElement("div");
+    carta.className = "carta";
+    carta.dataset.indice = indice;
+    carta.innerHTML = `
+      <div class="caratula-wrap">
+        <div class="sin-caratula">♪</div>
+        <div class="marca-play">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+      <div class="info">
+        <p class="titulo">${cancion.titulo}</p>
+        <p class="subtitulo"></p>
+      </div>
+    `;
+    carta.addEventListener("click", () => reproducir(canciones[indice], carta));
+    rejilla.appendChild(carta);
+
+    // Lee las etiquetas ID3 del propio mp3 (título, artista, carátula)
+    leerEtiquetasId3(cancion, carta);
+  });
+}
+
+function leerEtiquetasId3(cancion, carta){
+  if(typeof jsmediatags === "undefined") return;
+
+  jsmediatags.read(cancion.urlAudio, {
+    onSuccess: function(tag){
+      const t = tag.tags || {};
+
+      if(t.title){
+        cancion.titulo = t.title;
+        carta.querySelector(".titulo").textContent = t.title;
+      }
+      if(t.artist){
+        cancion.artista = t.artist;
+        carta.querySelector(".subtitulo").textContent = t.artist;
+      }
+      if(t.picture){
+        const {data, format} = t.picture;
+        const bytes = new Uint8Array(data);
+        const blob = new Blob([bytes], {type: format});
+        const urlImagen = URL.createObjectURL(blob);
+        cancion.urlCaratula = urlImagen;
+
+        const envoltorio = carta.querySelector(".caratula-wrap");
+        envoltorio.querySelector(".sin-caratula")?.remove();
+        const img = document.createElement("img");
+        img.src = urlImagen;
+        img.alt = cancion.titulo;
+        img.loading = "lazy";
+        envoltorio.prepend(img);
+      }
+    },
+    onError: function(error){
+      // El mp3 no trae etiquetas legibles: se conserva el título derivado del nombre de archivo.
+      console.warn("Sin etiquetas ID3 en", cancion.ruta, error);
+    }
+  });
+}
+
+function reproducir(cancion, elementoCarta){
+  document.querySelectorAll(".carta.activa").forEach(c => c.classList.remove("activa"));
+  elementoCarta.classList.add("activa");
+
+  const reproductor = document.getElementById("reproductor");
+  const audio = document.getElementById("rep-audio");
+  const titulo = document.getElementById("rep-titulo");
+  const caratula = document.getElementById("rep-caratula");
+
+  titulo.textContent = cancion.titulo + (cancion.artista ? " — " + cancion.artista : "");
+  caratula.src = cancion.urlCaratula || "";
+  caratula.style.visibility = cancion.urlCaratula ? "visible" : "hidden";
+  audio.src = cancion.urlAudio;
+  reproductor.classList.add("visible");
+  audio.play().catch(()=>{ /* el navegador puede requerir un toque previo */ });
+}
+
+cargarCancionero();
+</script>
+
 </body>
 </html>
