@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0969da">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cancionero — Mis Grabaciones</title>
@@ -10,7 +8,7 @@
 <style>
   :root{
     --fondo:#1b1714;
-    --fondo-carta:#241e19;
+    --fondo-fila:#241e19;
     --borde:#3a2f26;
     --texto:#efe6d8;
     --texto-tenue:#a89685;
@@ -36,7 +34,7 @@
   #estado.error{color:#c8785a;}
 
   #config-form{
-    margin:16px 20px; padding:16px; background:var(--fondo-carta);
+    margin:16px 20px; padding:16px; background:var(--fondo-fila);
     border:1px solid var(--borde); border-radius:10px;
     font-family:-apple-system, system-ui, sans-serif; display:none;
   }
@@ -51,32 +49,53 @@
     border:none; border-radius:6px; font-weight:bold; font-family:-apple-system, system-ui, sans-serif;
   }
 
-  #rejilla{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:18px; padding:8px 20px 20px; }
+  #lista{ display:flex; flex-direction:column; padding:8px 14px 20px; gap:2px; }
 
-  .carta{
-    background:var(--fondo-carta); border:1px solid var(--borde); border-radius:10px;
-    overflow:hidden; cursor:pointer; transition:transform .15s ease, border-color .15s ease;
+  .fila{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:10px 8px;
+    border-radius:10px;
+    cursor:pointer;
+    border:1px solid transparent;
+    transition:background .15s ease, border-color .15s ease;
   }
-  .carta:active{transform:scale(0.97);}
-  .carta.activa{border-color:var(--acento);}
+  .fila:active{ background:var(--fondo-fila); }
+  .fila.activa{ background:var(--fondo-fila); border-color:var(--acento); }
 
-  .caratula-wrap{ position:relative; width:100%; aspect-ratio:1/1; background:#161210; overflow:hidden; }
+  .caratula-wrap{
+    position:relative;
+    width:60px; height:60px;
+    border-radius:8px;
+    overflow:hidden;
+    background:#161210;
+    flex-shrink:0;
+  }
   .caratula-wrap img{ width:100%;height:100%;object-fit:cover;display:block; }
   .caratula-wrap .sin-caratula{
     width:100%;height:100%; display:flex;align-items:center;justify-content:center;
-    color:var(--texto-tenue); font-family:-apple-system, system-ui, sans-serif; font-size:2rem;
+    color:var(--texto-tenue); font-size:1.4rem;
   }
   .marca-play{
-    position:absolute; right:8px;bottom:8px; width:26px;height:26px; border-radius:50%;
+    position:absolute; right:3px;bottom:3px; width:20px;height:20px; border-radius:50%;
     background:var(--acento); display:flex;align-items:center;justify-content:center;
     opacity:0; transition:opacity .15s ease;
   }
-  .carta.activa .marca-play{opacity:1;}
-  .marca-play svg{width:12px;height:12px;fill:#1b1714;}
+  .fila.activa .marca-play{opacity:1;}
+  .marca-play svg{width:10px;height:10px;fill:#1b1714;}
 
-  .carta .info{padding:10px 10px 12px;}
-  .carta .titulo{ font-size:0.92rem; line-height:1.25; margin:0; color:var(--texto); }
-  .carta .subtitulo{ margin:4px 0 0; font-size:0.72rem; color:var(--texto-tenue); font-family:-apple-system, system-ui, sans-serif; }
+  .fila .info{ min-width:0; flex:1; }
+  .fila .titulo{
+    font-size:0.98rem; line-height:1.3; margin:0;
+    color:var(--texto);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .fila .autor{
+    margin:3px 0 0; font-size:0.78rem; color:var(--texto-tenue);
+    font-family:-apple-system, system-ui, sans-serif;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
 
   #reproductor{
     position:fixed; left:0;right:0;bottom:0; background:#141110; border-top:1px solid var(--borde);
@@ -99,7 +118,7 @@
 
 <header>
   <h1>Mi <span>Cancionero</span></h1>
-  <p>Título y carátula se leen directamente de las etiquetas del propio mp3</p>
+  <p>Carátula, título y autor se leen de las etiquetas del propio mp3</p>
 </header>
 
 <div id="estado">Cargando lista de canciones…</div>
@@ -114,7 +133,7 @@
   <button onclick="guardarConfiguracion()">Guardar y cargar</button>
 </div>
 
-<div id="rejilla"></div>
+<div id="lista"></div>
 <div id="vacio" style="display:none;"></div>
 
 <div id="reproductor">
@@ -137,18 +156,15 @@ const RAMA_POR_DEFECTO = "main";
 const CARPETA_MP3 = "mp3";
 
 function obtenerConfiguracion(){
-  const host = location.hostname;           // ej: jperez.github.io
-  const partesRuta = location.pathname.split("/").filter(Boolean); // ej: ["cancionero", "index.html"]
+  const host = location.hostname;
+  const partesRuta = location.pathname.split("/").filter(Boolean);
 
   if(host.endsWith(".github.io")){
     const usuario = host.split(".")[0];
-    // Página de proyecto: usuario.github.io/repositorio/...
-    // Página raíz de usuario: usuario.github.io/  (el repo se llama usuario.github.io)
     const repositorio = partesRuta.length > 0 ? partesRuta[0] : host;
     return {usuario, repositorio, rama: RAMA_POR_DEFECTO, carpetaMp3: CARPETA_MP3};
   }
 
-  // No estamos en github.io (ej: probando el archivo en local): usar datos guardados manualmente
   const guardada = localStorage.getItem("cancionero_config");
   if(guardada){ try{ return JSON.parse(guardada); }catch(e){} }
   return {usuario:"", repositorio:"", rama:RAMA_POR_DEFECTO, carpetaMp3:CARPETA_MP3};
@@ -200,8 +216,8 @@ async function cargarCancionero(){
       const vacio = document.getElementById("vacio");
       vacio.style.display = "block";
       vacio.innerHTML = `No se encontraron archivos .mp3 todavía.<br><br>
-        Sube tus canciones (con su carátula y título ya incrustados como etiquetas ID3)
-        a la carpeta <code>${cfg.carpetaMp3}/</code> del repositorio.`;
+        Sube tus canciones (con carátula, título y autor ya incrustados) a la carpeta
+        <code>${cfg.carpetaMp3}/</code> del repositorio.`;
       return;
     }
 
@@ -209,7 +225,7 @@ async function cargarCancionero(){
     const canciones = mp3s
       .map(m => ({
         ruta: m.path,
-        titulo: tituloDesdeArchivo(m.path), // provisional, se reemplaza si el mp3 trae etiqueta
+        titulo: tituloDesdeArchivo(m.path), // provisional, se reemplaza con la etiqueta real
         artista: "",
         urlAudio: base + m.path,
         urlCaratula: null
@@ -217,7 +233,7 @@ async function cargarCancionero(){
       .sort((a,b) => a.titulo.localeCompare(b.titulo, "es"));
 
     estado.style.display = "none";
-    renderizarRejilla(canciones);
+    renderizarLista(canciones);
 
   }catch(err){
     estado.textContent = "No se pudo cargar el cancionero: " + err.message;
@@ -226,15 +242,15 @@ async function cargarCancionero(){
   }
 }
 
-function renderizarRejilla(canciones){
-  const rejilla = document.getElementById("rejilla");
-  rejilla.innerHTML = "";
+function renderizarLista(canciones){
+  const lista = document.getElementById("lista");
+  lista.innerHTML = "";
 
   canciones.forEach((cancion, indice) => {
-    const carta = document.createElement("div");
-    carta.className = "carta";
-    carta.dataset.indice = indice;
-    carta.innerHTML = `
+    const fila = document.createElement("div");
+    fila.className = "fila";
+    fila.dataset.indice = indice;
+    fila.innerHTML = `
       <div class="caratula-wrap">
         <div class="sin-caratula">♪</div>
         <div class="marca-play">
@@ -243,58 +259,67 @@ function renderizarRejilla(canciones){
       </div>
       <div class="info">
         <p class="titulo">${cancion.titulo}</p>
-        <p class="subtitulo"></p>
+        <p class="autor"></p>
       </div>
     `;
-    carta.addEventListener("click", () => reproducir(canciones[indice], carta));
-    rejilla.appendChild(carta);
+    fila.addEventListener("click", () => reproducir(canciones[indice], fila));
+    lista.appendChild(fila);
 
-    // Lee las etiquetas ID3 del propio mp3 (título, artista, carátula)
-    leerEtiquetasId3(cancion, carta);
+    leerEtiquetasId3(cancion, fila);
   });
 }
 
-function leerEtiquetasId3(cancion, carta){
+async function leerEtiquetasId3(cancion, fila){
   if(typeof jsmediatags === "undefined") return;
 
-  jsmediatags.read(cancion.urlAudio, {
-    onSuccess: function(tag){
-      const t = tag.tags || {};
+  try{
+    // Se descarga el archivo completo y se pasa como Blob a jsmediatags:
+    // evita problemas de peticiones parciales (Range) con algunos servidores.
+    const respuesta = await fetch(cancion.urlAudio);
+    if(!respuesta.ok) throw new Error("No se pudo descargar el mp3");
+    const blob = await respuesta.blob();
 
-      if(t.title){
-        cancion.titulo = t.title;
-        carta.querySelector(".titulo").textContent = t.title;
-      }
-      if(t.artist){
-        cancion.artista = t.artist;
-        carta.querySelector(".subtitulo").textContent = t.artist;
-      }
-      if(t.picture){
-        const {data, format} = t.picture;
-        const bytes = new Uint8Array(data);
-        const blob = new Blob([bytes], {type: format});
-        const urlImagen = URL.createObjectURL(blob);
-        cancion.urlCaratula = urlImagen;
+    jsmediatags.read(blob, {
+      onSuccess: function(tag){
+        const t = tag.tags || {};
 
-        const envoltorio = carta.querySelector(".caratula-wrap");
-        envoltorio.querySelector(".sin-caratula")?.remove();
-        const img = document.createElement("img");
-        img.src = urlImagen;
-        img.alt = cancion.titulo;
-        img.loading = "lazy";
-        envoltorio.prepend(img);
+        if(t.title){
+          cancion.titulo = t.title;
+          fila.querySelector(".titulo").textContent = t.title;
+        }
+        if(t.artist){
+          cancion.artista = t.artist;
+          fila.querySelector(".autor").textContent = t.artist;
+        }
+        if(t.picture){
+          const {data, format} = t.picture;
+          const bytes = new Uint8Array(data);
+          const blobImagen = new Blob([bytes], {type: format});
+          const urlImagen = URL.createObjectURL(blobImagen);
+          cancion.urlCaratula = urlImagen;
+
+          const envoltorio = fila.querySelector(".caratula-wrap");
+          const marcador = envoltorio.querySelector(".sin-caratula");
+          if(marcador) marcador.remove();
+          const img = document.createElement("img");
+          img.src = urlImagen;
+          img.alt = cancion.titulo;
+          img.loading = "lazy";
+          envoltorio.prepend(img);
+        }
+      },
+      onError: function(error){
+        console.warn("Sin etiquetas ID3 legibles en", cancion.ruta, error);
       }
-    },
-    onError: function(error){
-      // El mp3 no trae etiquetas legibles: se conserva el título derivado del nombre de archivo.
-      console.warn("Sin etiquetas ID3 en", cancion.ruta, error);
-    }
-  });
+    });
+  }catch(err){
+    console.warn("No se pudieron leer etiquetas de", cancion.ruta, err);
+  }
 }
 
-function reproducir(cancion, elementoCarta){
-  document.querySelectorAll(".carta.activa").forEach(c => c.classList.remove("activa"));
-  elementoCarta.classList.add("activa");
+function reproducir(cancion, elementoFila){
+  document.querySelectorAll(".fila.activa").forEach(f => f.classList.remove("activa"));
+  elementoFila.classList.add("activa");
 
   const reproductor = document.getElementById("reproductor");
   const audio = document.getElementById("rep-audio");
