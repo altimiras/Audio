@@ -1,93 +1,174 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0969da">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mi Colección de Audios</title>
+
+  <!-- LÍNEAS PARA EL ICONO DE LA PESTAÑA (FAVICON) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2338bdf8'><path d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z'/></svg>">
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+
+  <!-- Librería externa para leer metadatos MP3 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 2rem 1rem; }
-    h1 { text-align: center; margin-bottom: 2rem; color: #38bdf8; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.5rem; max-width: 1200px; margin: 0 auto; }
-    .card { background: #1e293b; padding: 1.25rem; border-radius: 12px; text-align: center; border: 1px solid #334155; }
-    .card img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; background: #0f172a; }
-    .card h3 { margin: 12px 0 4px; font-size: 1.1rem; }
-    .card p { color: #94a3b8; margin: 0 0 12px; font-size: 0.9rem; }
-    audio { width: 100%; height: 36px; border-radius: 6px; }
+    .container { max-width: 600px; margin: 0 auto; background: #1e293b; padding: 2rem; border-radius: 16px; border: 1px solid #334155; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    h1 { margin-top: 0; color: #38bdf8; font-size: 1.5rem; }
+    
+    .cover-art { width: 220px; height: 220px; margin: 1.5rem auto; border-radius: 12px; object-fit: cover; background: #0f172a; border: 2px solid #334155; display: block; }
+    .track-title { font-size: 1.3rem; margin: 10px 0 4px; color: #f1f5f9; }
+    .track-artist { font-size: 1rem; color: #94a3b8; margin-bottom: 1.5rem; }
+    
+    audio { width: 100%; margin-bottom: 1.5rem; outline: none; }
+    
+    .controls { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; }
+    .btn { background: #38bdf8; color: #0f172a; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+    .btn:hover { background: #7dd3fc; }
+    
+    .playlist-section { text-align: left; border-top: 1px solid #334155; padding-top: 1.5rem; }
+    .playlist-section h3 { font-size: 1rem; color: #94a3b8; margin-bottom: 0.8rem; }
+    .playlist { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
+    .playlist li { padding: 0.75rem 1rem; background: #0f172a; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; }
+    .playlist li:hover { border-color: #38bdf8; }
+    .playlist li.active { background: #0284c7; color: #fff; }
+    .playlist li.active .song-file { color: #e0f2fe; }
+    .song-file { font-size: 0.85rem; color: #64748b; }
   </style>
 </head>
 <body>
 
-  <h1>Mis Grabaciones</h1>
-  <div id="playlist" class="grid"></div>
+  <div class="container">
+    <h1>Mi Colección de Audios</h1>
+    
+    <!-- Carátula principal -->
+    <img id="cover" class="cover-art" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='1.5'><path d='M9 18V5l12-2v13'></path><circle cx='6' cy='18' r='3'></circle><circle cx='18' cy='16' r='3'></circle></svg>" alt="Carátula">
+    
+    <!-- Información de la pista activa -->
+    <div id="title" class="track-title">Cargando...</div>
+    <div id="artist" class="track-artist">-</div>
+    
+    <!-- Controles de Audio -->
+    <audio id="player" controls></audio>
+    
+    <div class="controls">
+      <button class="btn" onclick="prevTrack()">Anterior</button>
+      <button class="btn" onclick="nextTrack()">Siguiente</button>
+    </div>
+
+    <!-- Lista de reproducción interactiva -->
+    <div class="playlist-section">
+      <h3>Lista de Pistas</h3>
+      <ul id="playlist" class="playlist"></ul>
+    </div>
+  </div>
 
   <script>
-    const container = document.getElementById("playlist");
     const jsMediaTags = window.jsmediatags;
+    const player = document.getElementById('player');
+    const coverEl = document.getElementById('cover');
+    const titleEl = document.getElementById('title');
+    const artistEl = document.getElementById('artist');
+    const playlistEl = document.getElementById('playlist');
 
-    // Cargar la lista generada automáticamente
+    const defaultCover = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='1.5'><path d='M9 18V5l12-2v13'></path><circle cx='6' cy='18' r='3'></circle><circle cx='18' cy='16' r='3'></circle></svg>";
+
+    let tracks = [];
+    let currentIndex = 0;
+
+    // Cargar lista desde lista-audios.json
     fetch('lista-audios.json')
-      .then(response => response.json())
-      .then(archivos => {
-        if (archivos.length === 0) {
-          container.innerHTML = "<p style='grid-column: 1/-1; text-align: center;'>No hay archivos en la carpeta audios/ todavía.</p>";
+      .then(res => res.json())
+      .then(files => {
+        if (!files || files.length === 0) {
+          titleEl.textContent = "No hay archivos en lista-audios.json";
           return;
         }
 
-        archivos.forEach(nombreArchivo => {
-          const src = `audios/${nombreArchivo}`;
+        tracks = files.map(file => ({
+          file: file,
+          src: `audios/${file}`,
+          title: file.replace('.mp3', ''),
+          artist: 'Grabación Personal',
+          cover: defaultCover
+        }));
 
-          const card = document.createElement("div");
-          card.className = "card";
-          
-          const img = document.createElement("img");
-          img.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='1.5'><path d='M9 18V5l12-2v13'></path><circle cx='6' cy='18' r='3'></circle><circle cx='18' cy='16' r='3'></circle></svg>";
+        renderPlaylist();
+        loadTrack(0);
 
-          const titleEl = document.createElement("h3");
-          titleEl.textContent = "Cargando...";
-
-          const artistEl = document.createElement("p");
-          artistEl.textContent = "...";
-
-          const audioEl = document.createElement("audio");
-          audioEl.controls = true;
-          audioEl.src = src;
-
-          card.appendChild(img);
-          card.appendChild(titleEl);
-          card.appendChild(artistEl);
-          card.appendChild(audioEl);
-          container.appendChild(card);
-
-          // Leer título, autor y carátula directamente del archivo MP3
-          jsMediaTags.read(src, {
+        // Extraer metadatos ID3
+        tracks.forEach((track, index) => {
+          jsMediaTags.read(track.src, {
             onSuccess: function(tag) {
               const tags = tag.tags;
-              titleEl.textContent = tags.title || nombreArchivo.replace('.mp3', '');
-              artistEl.textContent = tags.artist || "Grabación personal";
-              
+              if (tags.title) track.title = tags.title;
+              if (tags.artist) track.artist = tags.artist;
               if (tags.picture) {
                 const { data, format } = tags.picture;
-                let base64String = "";
+                let base64 = "";
                 for (let i = 0; i < data.length; i++) {
-                  base64String += String.fromCharCode(data[i]);
+                  base64 += String.fromCharCode(data[i]);
                 }
-                img.src = `data:${format};base64,${btoa(base64String)}`;
+                track.cover = `data:${format};base64,${btoa(base64)}`;
               }
+              renderPlaylist();
+              if (index === currentIndex) updateUI();
             },
-            onError: function() {
-              titleEl.textContent = nombreArchivo.replace('.mp3', '');
-              artistEl.textContent = "Grabación personal";
-            }
+            onError: function() {}
           });
         });
       })
       .catch(err => {
-        console.error("Error al cargar la lista de audios:", err);
+        titleEl.textContent = "Error al cargar lista-audios.json";
       });
+
+    function loadTrack(index) {
+      if (tracks.length === 0) return;
+      currentIndex = index;
+      player.src = tracks[currentIndex].src;
+      updateUI();
+      renderPlaylist();
+    }
+
+    function updateUI() {
+      const current = tracks[currentIndex];
+      titleEl.textContent = current.title;
+      artistEl.textContent = current.artist;
+      coverEl.src = current.cover;
+    }
+
+    function renderPlaylist() {
+      playlistEl.innerHTML = '';
+      tracks.forEach((track, idx) => {
+        const li = document.createElement('li');
+        if (idx === currentIndex) li.className = 'active';
+        li.innerHTML = `<span>${track.title}</span> <span class="song-file">${track.file}</span>`;
+        li.onclick = () => {
+          loadTrack(idx);
+          player.play();
+        };
+        playlistEl.appendChild(li);
+      });
+    }
+
+    function nextTrack() {
+      if (tracks.length === 0) return;
+      currentIndex = (currentIndex + 1) % tracks.length;
+      loadTrack(currentIndex);
+      player.play();
+    }
+
+    function prevTrack() {
+      if (tracks.length === 0) return;
+      currentIndex = (currentIndex - 1 + tracks.length) % tracks.length;
+      loadTrack(currentIndex);
+      player.play();
+    }
+
+    player.addEventListener('ended', nextTrack);
   </script>
 </body>
 </html>
