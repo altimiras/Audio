@@ -1,1 +1,32 @@
 
+name: Generar lista de audios automáticamente
+
+on:
+  push:
+    paths:
+      - 'audios/**'
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v3
+
+      - name: Generar lista de audios JSON
+        run: |
+          mkdir -p audios
+          cd audios
+          # Buscar archivos mp3 y crear un JSON con sus rutas
+          ls -1 *.mp3 2>/dev/null | jq -R . | jq -s . > ../lista-audios.json || echo "[]" > ../lista-audios.json
+
+      - name: Guardar cambios en el repositorio
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add lista-audios.json
+          git status
+          git diff-index --quiet HEAD || git commit -m "Auto-actualización de la lista de audios"
+          git push
